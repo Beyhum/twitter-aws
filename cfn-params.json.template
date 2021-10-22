@@ -1,0 +1,6 @@
+[
+  {
+    "ParameterKey":  "JwtKey",
+    "ParameterValue": "put-secret-key-for-signing-jwt"
+  }
+]

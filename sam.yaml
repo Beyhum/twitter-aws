@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless Twitter API
+Parameters:
+  JwtKey:
+    Type: String
+
+Resources:
+  TwitterApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: beyhum.twitter.HttpLambdaHandler::handleRequest
+      Runtime: java11
+      CodeUri: "target/twitter-1.0-SNAPSHOT.jar"
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: Tweet
+        - DynamoDBCrudPolicy:
+            TableName: User
+      Timeout: 30
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: any
+      Environment:
+        Variables:
+          JWT_KEY: !Ref JwtKey
+
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: User
+      AttributeDefinitions:
+        - AttributeName: Id
+          AttributeType: S
+        - AttributeName: Username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UsersByName
+          KeySchema:
+            - AttributeName: Username
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  TweetTable:
+    Type: AWS::DynamoDB::Table
+    DependsOn: UserTable
+    Properties:
+      TableName: Tweet
+      AttributeDefinitions:
+        - AttributeName: AuthorId
+          AttributeType: S
+        - AttributeName: Date
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: AuthorId
+          KeyType: HASH
+        - AttributeName: Timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: TweetsByDate
+          KeySchema:
+            - AttributeName: Date
+              KeyType: HASH
+            - AttributeName: Timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+Outputs:
+  TwitterApi:
+    Description: URL for application
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
+    Export:
+      Name: TwitterApi
